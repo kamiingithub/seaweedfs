@@ -21,6 +21,7 @@ func (vs *VolumeServer) statusHandler(w http.ResponseWriter, r *http.Request) {
 			ds = append(ds, newDiskStatus)
 		}
 	}
+	// 这里统计的不是volume的目录磁盘状态 是整个硬件磁盘的！
 	m["DiskStatuses"] = ds
 	m["Volumes"] = vs.store.VolumeInfos()
 	writeJsonQuiet(w, r, http.StatusOK, m)

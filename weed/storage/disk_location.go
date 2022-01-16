@@ -162,12 +162,18 @@ func (l *DiskLocation) concurrentLoadingVolumes(needleMapKind NeedleMapKind, con
 		close(task_queue)
 	}()
 
+	// 若重启：task_queue里都是 .idx文件
+	for entry := range task_queue {
+		fmt.Println("task_queue:::" + entry.Name())
+	}
 	var wg sync.WaitGroup
 	for workerNum := 0; workerNum < concurrency; workerNum++ {
 		wg.Add(1)
 		go func() {
+			// 这里为什么不进来？？
 			defer wg.Done()
 			for fi := range task_queue {
+				fmt.Println("fi:::" + fi.Name())
 				_ = l.loadExistingVolume(fi, needleMapKind, true)
 			}
 		}()
@@ -178,6 +184,7 @@ func (l *DiskLocation) concurrentLoadingVolumes(needleMapKind NeedleMapKind, con
 
 func (l *DiskLocation) loadExistingVolumes(needleMapKind NeedleMapKind) {
 
+	// 并发加载volumes
 	l.concurrentLoadingVolumes(needleMapKind, 10)
 	glog.V(0).Infof("Store started on dir: %s with %d volumes max %d", l.Directory, len(l.volumes), l.MaxVolumeCount)
 

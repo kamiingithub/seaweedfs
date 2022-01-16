@@ -56,12 +56,18 @@ func (s *Store) String() (str string) {
 	return
 }
 
+// 读取 store 信息, 会递归加载 所有目录下的 volume 信息 Store -> DiskLocation -> Volume
+// 从 .vif 文件中解析得到VolumeInfo
+// 从 .dat 文件中加载得到各个 needle 数据信息;并读取超级块信息
+// 从 .idx 文件中 获取 索引信息,并保存在leveldb中; 获取索引信息,并保存在leveldb中
+// 并获取 最大 的 file key, 统计 所有文件总的 大小, 删除 文件 总的 次数, 删除 文件 总的 大小
 func NewStore(grpcDialOption grpc.DialOption, ip string, port int, grpcPort int, publicUrl string, dirnames []string, maxVolumeCounts []int,
 	minFreeSpaces []util.MinFreeSpace, idxFolder string, needleMapKind NeedleMapKind, diskTypes []DiskType) (s *Store) {
 	s = &Store{grpcDialOption: grpcDialOption, Port: port, Ip: ip, GrpcPort: grpcPort, PublicUrl: publicUrl, NeedleMapKind: needleMapKind}
 	s.Locations = make([]*DiskLocation, 0)
 	for i := 0; i < len(dirnames); i++ {
 		location := NewDiskLocation(dirnames[i], maxVolumeCounts[i], minFreeSpaces[i], idxFolder, diskTypes[i])
+		// 加载存在的文件信息 todo
 		location.loadExistingVolumes(needleMapKind)
 		s.Locations = append(s.Locations, location)
 		stats.VolumeServerMaxVolumeCounter.Add(float64(maxVolumeCounts[i]))

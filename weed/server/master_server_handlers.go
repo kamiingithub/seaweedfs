@@ -107,6 +107,7 @@ func (ms *MasterServer) dirAssignHandler(w http.ResponseWriter, r *http.Request)
 		writableVolumeCount = 0
 	}
 
+	// 获取 topology.VolumeGrowOption 里面包含数据中心、机架、节点等信息
 	option, err := ms.getVolumeGrowOption(r)
 	if err != nil {
 		writeJsonQuiet(w, r, http.StatusNotAcceptable, operation.AssignResult{Error: err.Error()})
@@ -133,6 +134,7 @@ func (ms *MasterServer) dirAssignHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
+	// 从volume layout中的可写列表中查寻一个满足条件的节点
 	fid, count, dnList, err := ms.Topo.PickForWrite(requestedCount, option)
 	if err == nil {
 		ms.maybeAddJwtAuthorization(w, fid, true)

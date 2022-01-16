@@ -50,6 +50,7 @@ type Guard struct {
 	isWriteActive bool
 }
 
+// 使用白名单列表 生成 guard 结构体
 func NewGuard(whiteList []string, signingKey string, expiresAfterSec int, readSigningKey string, readExpiresAfterSec int) *Guard {
 	g := &Guard{
 		whiteList:           whiteList,

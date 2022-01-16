@@ -137,6 +137,7 @@ func (t *Topology) HasWritableVolume(option *VolumeGrowOption) bool {
 	return active > 0
 }
 
+// 获取指定个数的可写节点, 递归调用 VolumeLayout 的 PickForWrite, 本地操作
 func (t *Topology) PickForWrite(count uint64, option *VolumeGrowOption) (string, uint64, *VolumeLocationList, error) {
 	vid, count, datanodes, err := t.GetVolumeLayout(option.Collection, option.ReplicaPlacement, option.Ttl, option.DiskType).PickForWrite(count, option)
 	if err != nil {

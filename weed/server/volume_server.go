@@ -93,11 +93,12 @@ func NewVolumeServer(adminMux, publicMux *http.ServeMux, ip string,
 
 	vs.checkWithMaster()
 
+	// 1)从磁盘加载文件信息到store
 	vs.store = storage.NewStore(vs.grpcDialOption, ip, port, grpcPort, publicUrl, folders, maxCounts, minFreeSpaces, idxFolder, vs.needleMapKind, diskTypes)
 	vs.guard = security.NewGuard(whiteList, signingKey, expiresAfterSec, readSigningKey, readExpiresAfterSec)
 
 	handleStaticResources(adminMux)
-	adminMux.HandleFunc("/status", vs.statusHandler)
+	adminMux.HandleFunc("/status", vs.statusHandler) // volume状态信息
 	if signingKey == "" || enableUiAccess {
 		// only expose the volume server details for safe environments
 		adminMux.HandleFunc("/ui/index.html", vs.uiStatusHandler)
@@ -107,6 +108,7 @@ func NewVolumeServer(adminMux, publicMux *http.ServeMux, ip string,
 			adminMux.HandleFunc("/stats/disk", vs.guard.WhiteList(vs.statsDiskHandler))
 		*/
 	}
+	// 2)绑定http handler
 	adminMux.HandleFunc("/", vs.privateStoreHandler)
 	if publicMux != adminMux {
 		// separated admin and public port
@@ -114,6 +116,7 @@ func NewVolumeServer(adminMux, publicMux *http.ServeMux, ip string,
 		publicMux.HandleFunc("/", vs.publicReadOnlyHandler)
 	}
 
+	// 3)heartbeat
 	go vs.heartbeat()
 	go stats.LoopPushingMetric("volumeServer", util.JoinHostPort(ip, port), vs.metricsAddress, vs.metricsIntervalSec)
 

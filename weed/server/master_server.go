@@ -110,7 +110,7 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 		adminLocks:      NewAdminLocks(),
 		Cluster:         cluster.NewCluster(),
 	}
-	// 当代理请求到 master 去时, 该 channel 用于控制最多多少个并发请求可以代理到 master, 防止太多请求打垮 master
+	// 当代理(proxyToLeader)请求到 master时, 该channel用于控制最多有多少个并发请求可以代理到master, 防止太多请求打垮master
 	ms.boundedLeaderChan = make(chan int, 16)
 
 	seq := ms.createSequencer(option)
