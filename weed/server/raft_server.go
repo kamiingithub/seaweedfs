@@ -67,6 +67,7 @@ func NewRaftServer(grpcDialOption grpc.DialOption, peers []pb.ServerAddress, ser
 	raft.RegisterCommand(&topology.MaxVolumeIdCommand{})
 
 	var err error
+	// 用于raft通信的组件
 	transporter := raft.NewGrpcTransporter(grpcDialOption)
 	glog.V(0).Infof("Starting RaftServer with %v", serverAddr)
 
@@ -86,16 +87,20 @@ func NewRaftServer(grpcDialOption grpc.DialOption, peers []pb.ServerAddress, ser
 		glog.V(0).Infoln(err)
 		return nil, err
 	}
+	// 设置心跳间隔 300ms-450ms
 	s.raftServer.SetHeartbeatInterval(time.Duration(300+rand.Intn(150)) * time.Millisecond)
 	s.raftServer.SetElectionTimeout(10 * time.Second)
+	// 尝试从本地解析snapshot文件并加载到内存
 	if err := s.raftServer.LoadSnapshot(); err != nil {
 		return nil, err
 	}
+	// 启动raftServer
 	if err := s.raftServer.Start(); err != nil {
 		return nil, err
 	}
 
 	for _, peer := range s.peers {
+		// add peer
 		if err := s.raftServer.AddPeer(string(peer), peer.ToGrpcAddress()); err != nil {
 			return nil, err
 		}

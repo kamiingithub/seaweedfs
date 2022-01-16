@@ -289,6 +289,8 @@ type UnsafeSeaweedServer interface {
 }
 
 func RegisterSeaweedServer(s grpc.ServiceRegistrar, srv SeaweedServer) {
+	// s is Server
+	// Seaweed_ServiceDesc是 method <-> handler 映射
 	s.RegisterService(&Seaweed_ServiceDesc, srv)
 }
 
@@ -630,5 +632,4 @@ var Seaweed_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "master.proto",
 }

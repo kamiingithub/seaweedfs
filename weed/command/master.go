@@ -120,6 +120,7 @@ func startMaster(masterOption MasterOptions, masterWhiteList []string) {
 	myMasterAddress, peers := checkPeers(*masterOption.ip, *masterOption.port, *masterOption.portGrpc, *masterOption.peers)
 
 	r := mux.NewRouter()
+	// 1.构建masterServer 2.绑定http func 3.刷新可写volume列表，压缩volume空间
 	ms := weed_server.NewMasterServer(r, masterOption.toMasterOption(masterWhiteList), peers)
 	listeningAddress := util.JoinHostPort(*masterOption.ipBind, *masterOption.port)
 	glog.V(0).Infof("Start Seaweed Master %s at %s", util.Version(), listeningAddress)
@@ -142,12 +143,16 @@ func startMaster(masterOption MasterOptions, masterWhiteList []string) {
 		glog.Fatalf("master failed to listen on grpc port %d: %v", grpcPort, err)
 	}
 	grpcS := pb.NewGrpcServer(security.LoadServerTLS(util.GetViper(), "grpc.master"))
+	// 把masterServer注册到grpc
 	master_pb.RegisterSeaweedServer(grpcS, ms)
+	// 把raftServer注册到grpc
 	protobuf.RegisterRaftServer(grpcS, raftServer)
 	reflection.Register(grpcS)
 	glog.V(0).Infof("Start Seaweed Master %s grpc server at %s:%d", util.Version(), *masterOption.ipBind, grpcPort)
+	// 监听gprc请求
 	go grpcS.Serve(grpcL)
 
+	// 15s后还没选出leader，则手动选第一个peer成为leader
 	go func() {
 		time.Sleep(1500 * time.Millisecond)
 		if ms.Topo.RaftServer.Leader() == "" && ms.Topo.RaftServer.IsLogEmpty() && isTheFirstOne(myMasterAddress, peers) {
@@ -157,10 +162,13 @@ func startMaster(masterOption MasterOptions, masterWhiteList []string) {
 		}
 	}()
 
+	// 由Master Client的KeepConnected操作从Leader Master Server进行数据的同步
+	// 接收volume变动信息,并且将数据保存在master client 的vidMap中
 	go ms.MasterClient.KeepConnectedToMaster()
 
 	// start http server
 	httpS := &http.Server{Handler: r}
+	// 监听客户端http请求
 	go httpS.Serve(masterListener)
 
 	select {}

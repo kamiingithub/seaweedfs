@@ -110,6 +110,7 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 		adminLocks:      NewAdminLocks(),
 		Cluster:         cluster.NewCluster(),
 	}
+	// 当代理请求到 master 去时, 该 channel 用于控制最多多少个并发请求可以代理到 master, 防止太多请求打垮 master
 	ms.boundedLeaderChan = make(chan int, 16)
 
 	seq := ms.createSequencer(option)
@@ -120,6 +121,7 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 	ms.vg = topology.NewDefaultVolumeGrowth()
 	glog.V(0).Infoln("Volume Size Limit is", ms.option.VolumeSizeLimitMB, "MB")
 
+	// 初始化白名单机制
 	ms.guard = security.NewGuard(ms.option.WhiteList, signingKey, expiresAfterSec, readSigningKey, readExpiresAfterSec)
 
 	handleStaticResources2(r)
@@ -142,6 +144,8 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 		r.HandleFunc("/{fileId}", ms.redirectHandler)
 	}
 
+	// 1.leader将已满的volume从可写列表移除
+	// 2.会向各个 volume 发出 Compact 指令, 采用复制算法进行空洞压缩
 	ms.Topo.StartRefreshWritableVolumes(
 		ms.grpcDialOption,
 		ms.option.GarbageThreshold,
@@ -152,6 +156,7 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 	ms.ProcessGrowRequest()
 
 	if !option.IsFollower {
+		// 启动管理脚本 默认不执行
 		ms.startAdminScripts()
 	}
 
