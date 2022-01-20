@@ -28,6 +28,7 @@ func ReplicatedWrite(masterFn operation.GetMasterFn, grpcDialOption grpc.DialOpt
 	var remoteLocations []operation.Location
 	if r.FormValue("type") != "replicate" {
 		// this is the initial request
+		// 根据vid找到对应的location
 		remoteLocations, err = getWritableRemoteReplications(s, grpcDialOption, volumeId, masterFn)
 		if err != nil {
 			glog.V(0).Infoln(err)
@@ -41,7 +42,9 @@ func ReplicatedWrite(masterFn operation.GetMasterFn, grpcDialOption grpc.DialOpt
 		fsync = true
 	}
 
+	// 如果vid在本volume上，直接写本地
 	if s.GetVolume(volumeId) != nil {
+		// 写入volume
 		isUnchanged, err = s.WriteVolumeNeedle(volumeId, n, true, fsync)
 		if err != nil {
 			err = fmt.Errorf("failed to write to local disk: %v", err)
@@ -50,6 +53,7 @@ func ReplicatedWrite(masterFn operation.GetMasterFn, grpcDialOption grpc.DialOpt
 		}
 	}
 
+	// 如果vid不在本volume上，则转发给别的volume
 	if len(remoteLocations) > 0 { //send to other replica locations
 		if err = DistributedOperation(remoteLocations, func(location operation.Location) error {
 			u := url.URL{
@@ -92,6 +96,7 @@ func ReplicatedWrite(masterFn operation.GetMasterFn, grpcDialOption grpc.DialOpt
 				PairMap:           pairMap,
 				Jwt:               jwt,
 			}
+			// 上传数据给目标volume
 			_, err := operation.UploadData(n.Data, uploadOption)
 			return err
 		}); err != nil {
@@ -156,6 +161,7 @@ func DistributedOperation(locations []operation.Location, op func(location opera
 	length := len(locations)
 	results := make(chan RemoteResult)
 	for _, location := range locations {
+		// 异步转发请求
 		go func(location operation.Location, results chan RemoteResult) {
 			results <- RemoteResult{location.Url, op(location)}
 		}(location, results)

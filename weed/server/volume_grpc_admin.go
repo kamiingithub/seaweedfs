@@ -17,6 +17,7 @@ func (vs *VolumeServer) DeleteCollection(ctx context.Context, req *volume_server
 
 	resp := &volume_server_pb.DeleteCollectionResponse{}
 
+	// 在磁盘上删除collection下的所有volume
 	err := vs.store.DeleteCollection(req.Collection)
 
 	if err != nil {
@@ -29,6 +30,7 @@ func (vs *VolumeServer) DeleteCollection(ctx context.Context, req *volume_server
 
 }
 
+// volume处理AllocateVolume请求
 func (vs *VolumeServer) AllocateVolume(ctx context.Context, req *volume_server_pb.AllocateVolumeRequest) (*volume_server_pb.AllocateVolumeResponse, error) {
 
 	resp := &volume_server_pb.AllocateVolumeResponse{}

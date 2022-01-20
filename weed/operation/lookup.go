@@ -53,6 +53,8 @@ func LookupFileId(masterFn GetMasterFn, grpcDialOption grpc.DialOption, fileId s
 	return "http://" + lookup.Locations[rand.Intn(len(lookup.Locations))].Url + "/" + fileId, lookup.Jwt, nil
 }
 
+// 找vid的location
+// 先从缓存里找，没有则rpc调用leader master找
 func LookupVolumeId(masterFn GetMasterFn, grpcDialOption grpc.DialOption, vid string) (*LookupResult, error) {
 	results, err := LookupVolumeIds(masterFn, grpcDialOption, []string{vid})
 	return results[vid], err
@@ -65,6 +67,7 @@ func LookupVolumeIds(masterFn GetMasterFn, grpcDialOption grpc.DialOption, vids 
 
 	//check vid cache first
 	for _, vid := range vids {
+		// 1.先从缓存中获取
 		locations, cacheErr := vc.Get(vid)
 		if cacheErr == nil {
 			ret[vid] = &LookupResult{VolumeOrFileId: vid, Locations: locations}
@@ -79,6 +82,7 @@ func LookupVolumeIds(masterFn GetMasterFn, grpcDialOption grpc.DialOption, vids 
 
 	//only query unknown_vids
 
+	// 2.通过grpc调用leader master /LookupVolume
 	err := WithMasterServerClient(false, masterFn(), grpcDialOption, func(masterClient master_pb.SeaweedClient) error {
 
 		req := &master_pb.LookupVolumeRequest{

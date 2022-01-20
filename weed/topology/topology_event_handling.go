@@ -15,11 +15,13 @@ func (t *Topology) StartRefreshWritableVolumes(grpcDialOption grpc.DialOption, g
 		for {
 			if t.IsLeader() {
 				freshThreshHold := time.Now().Unix() - 3*t.pulse //3 times of sleep interval
+				// 收集满的volume
 				t.CollectDeadNodeAndFullVolumes(freshThreshHold, t.volumeSizeLimit, growThreshold)
 			}
 			time.Sleep(time.Duration(float32(t.pulse*1e3)*(1+rand.Float32())) * time.Millisecond)
 		}
 	}()
+	// 定时压缩
 	go func(garbageThreshold float64) {
 		c := time.Tick(15 * time.Minute)
 		for _ = range c {
@@ -31,6 +33,7 @@ func (t *Topology) StartRefreshWritableVolumes(grpcDialOption grpc.DialOption, g
 	go func() {
 		for {
 			select {
+			// 设置full、crowed的volume
 			case fv := <-t.chanFullVolumes:
 				t.SetVolumeCapacityFull(fv)
 			case cv := <-t.chanCrowdedVolumes:

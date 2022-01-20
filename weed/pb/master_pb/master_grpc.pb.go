@@ -295,6 +295,7 @@ func RegisterSeaweedServer(s grpc.ServiceRegistrar, srv SeaweedServer) {
 }
 
 func _Seaweed_SendHeartbeat_Handler(srv interface{}, stream grpc.ServerStream) error {
+	// weed.server.master_grpc_server#SendHeartbeat
 	return srv.(SeaweedServer).SendHeartbeat(&seaweedSendHeartbeatServer{stream})
 }
 
@@ -620,12 +621,14 @@ var Seaweed_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
+			// 接收volume心跳
 			StreamName:    "SendHeartbeat",
 			Handler:       _Seaweed_SendHeartbeat_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
+			// 与master通信
 			StreamName:    "KeepConnected",
 			Handler:       _Seaweed_KeepConnected_Handler,
 			ServerStreams: true,

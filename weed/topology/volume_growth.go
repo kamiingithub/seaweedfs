@@ -81,12 +81,16 @@ func (vg *VolumeGrowth) AutomaticGrowByType(option *VolumeGrowOption, grpcDialOp
 	if targetCount == 0 {
 		targetCount = vg.findVolumeCount(option.ReplicaPlacement.GetCopyCount())
 	}
+	// grow
 	count, err = vg.GrowByCountAndType(grpcDialOption, targetCount, option, topo)
 	if count > 0 && count%option.ReplicaPlacement.GetCopyCount() == 0 {
 		return count, nil
 	}
 	return count, err
 }
+
+// 扩容在本地通过data center\rack\data node 层层找到符合要求的节点, 然后向目标节点发起 pb 请求申请扩容
+// 最终调用 volume server 的 AllocateVolume
 func (vg *VolumeGrowth) GrowByCountAndType(grpcDialOption grpc.DialOption, targetCount int, option *VolumeGrowOption, topo *Topology) (counter int, err error) {
 	vg.accessLock.Lock()
 	defer vg.accessLock.Unlock()
@@ -103,14 +107,18 @@ func (vg *VolumeGrowth) GrowByCountAndType(grpcDialOption grpc.DialOption, targe
 }
 
 func (vg *VolumeGrowth) findAndGrow(grpcDialOption grpc.DialOption, topo *Topology, option *VolumeGrowOption) (int, error) {
+	// 这里会层层调用 data center \ rack \ data node 的相关函数找到符合要求的data nodes
 	servers, e := vg.findEmptySlotsForOneVolume(topo, option)
 	if e != nil {
 		return 0, e
 	}
+	// 生成新的vid并通过raft appendEntry同步给其他master
 	vid, raftErr := topo.NextVolumeId()
 	if raftErr != nil {
 		return 0, raftErr
 	}
+	// 向目标 volume 发起 pb 请求申请扩容
+	// 最终调用 volume server 的 AllocateVolume
 	err := vg.grow(grpcDialOption, topo, vid, option, servers...)
 	return len(servers), err
 }
@@ -230,7 +238,11 @@ func (vg *VolumeGrowth) grow(grpcDialOption grpc.DialOption, topo *Topology, vid
 				Version:          needle.CurrentVersion,
 				DiskType:         option.DiskType.String(),
 			}
+			// 记录 volume -> data node
 			server.AddOrUpdateVolume(vi)
+			// *注册到volume layout
+			// volume的信息会通过 heartbeat 传过来
+			// @see weed.server.master_grpc_server#SendHeartbeat
 			topo.RegisterVolumeLayout(vi, server)
 			glog.V(0).Infoln("Created Volume", vid, "on", server.NodeImpl.String())
 		} else {

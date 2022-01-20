@@ -48,6 +48,8 @@ func (ms *MasterServer) dirLookupHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	collection := r.FormValue("collection") // optional, but can be faster if too many collections
+	// leader 从本地的VolumeLayout查找
+	// 非leader 从masterClient中查找
 	location := ms.findVolumeLocation(collection, vid)
 	httpStatus := http.StatusOK
 	if location.Error != "" || location.Locations == nil {
@@ -65,17 +67,20 @@ func (ms *MasterServer) dirLookupHandler(w http.ResponseWriter, r *http.Request)
 func (ms *MasterServer) findVolumeLocation(collection, vid string) operation.LookupResult {
 	var locations []operation.Location
 	var err error
-	if ms.Topo.IsLeader() {
+	if ms.Topo.IsLeader() { // leader
 		volumeId, newVolumeIdErr := needle.NewVolumeId(vid)
 		if newVolumeIdErr != nil {
 			err = fmt.Errorf("Unknown volume id %s", vid)
 		} else {
+			// 从leader本地的VolumeLayout查找
 			machines := ms.Topo.Lookup(collection, volumeId)
 			for _, loc := range machines {
 				locations = append(locations, operation.Location{Url: loc.Url(), PublicUrl: loc.PublicUrl})
 			}
 		}
-	} else {
+	} else { // 非leader
+		// 从MasterClient的vidMap获取
+		// 这里是通过和laeder master的keepConnected获取到的
 		machines, getVidLocationsErr := ms.MasterClient.GetVidLocations(vid)
 		for _, loc := range machines {
 			locations = append(locations, operation.Location{Url: loc.Url, PublicUrl: loc.PublicUrl})
@@ -107,22 +112,25 @@ func (ms *MasterServer) dirAssignHandler(w http.ResponseWriter, r *http.Request)
 		writableVolumeCount = 0
 	}
 
-	// 获取 topology.VolumeGrowOption 里面包含数据中心、机架、节点等信息
 	option, err := ms.getVolumeGrowOption(r)
 	if err != nil {
 		writeJsonQuiet(w, r, http.StatusNotAcceptable, operation.AssignResult{Error: err.Error()})
 		return
 	}
 
+	// 从topo.collectionMap中获取(or 创建) volumeLayout
 	vl := ms.Topo.GetVolumeLayout(option.Collection, option.ReplicaPlacement, option.Ttl, option.DiskType)
 
+	// 1.可能grow volume
 	if !vl.HasGrowRequest() && vl.ShouldGrowVolumes(option) {
 		glog.V(0).Infof("dirAssign volume growth %v from %v", option.String(), r.RemoteAddr)
-		if ms.Topo.AvailableSpaceFor(option) <= 0 {
+		if ms.Topo.AvailableSpaceFor(option) <= 0 { // no space
 			writeJsonQuiet(w, r, http.StatusNotFound, operation.AssignResult{Error: "No free volumes left for " + option.String()})
 			return
 		}
 		errCh := make(chan error, 1)
+
+		// add
 		vl.AddGrowRequest()
 		ms.vgCh <- &topology.VolumeGrowRequest{
 			Option: option,
@@ -134,7 +142,7 @@ func (ms *MasterServer) dirAssignHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	// 从volume layout中的可写列表中查寻一个满足条件的节点
+	// 2.从volume layout中的可写列表中pick一个满足条件的节点
 	fid, count, dnList, err := ms.Topo.PickForWrite(requestedCount, option)
 	if err == nil {
 		ms.maybeAddJwtAuthorization(w, fid, true)

@@ -99,6 +99,8 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 	defer grpcConection.Close()
 
 	client := master_pb.NewSeaweedClient(grpcConection)
+
+	// 建立心跳长连接
 	stream, err := client.SendHeartbeat(ctx)
 	if err != nil {
 		glog.V(0).Infof("SendHeartbeat to %s: %v", masterAddress, err)
@@ -111,11 +113,13 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 
 	go func() {
 		for {
+			// 从master接收数据
 			in, err := stream.Recv()
 			if err != nil {
 				doneChan <- err
 				return
 			}
+			// 调整size limit
 			if in.GetVolumeSizeLimit() != 0 && vs.store.GetVolumeSizeLimit() != in.GetVolumeSizeLimit() {
 				vs.store.SetVolumeSizeLimit(in.GetVolumeSizeLimit())
 				if vs.store.MaybeAdjustVolumeMax() {
@@ -125,6 +129,7 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 					}
 				}
 			}
+			// 切换leader则退出heartbeat
 			if in.GetLeader() != "" && string(vs.currentMaster) != in.GetLeader() {
 				glog.V(0).Infof("Volume Server found a new master newLeader: %v instead of %v", in.GetLeader(), vs.currentMaster)
 				newLeader = pb.ServerAddress(in.GetLeader())
@@ -134,6 +139,7 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 		}
 	}()
 
+	// send heartbeat
 	if err = stream.Send(vs.store.CollectHeartbeat()); err != nil {
 		glog.V(0).Infof("Volume Server Failed to talk with master %s: %v", masterAddress, err)
 		return "", err
@@ -149,18 +155,19 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 
 	for {
 		select {
-		case volumeMessage := <-vs.store.NewVolumesChan:
+		case volumeMessage := <-vs.store.NewVolumesChan: // 新增了volume
 			deltaBeat := &master_pb.Heartbeat{
 				NewVolumes: []*master_pb.VolumeShortInformationMessage{
 					&volumeMessage,
 				},
 			}
 			glog.V(0).Infof("volume server %s:%d adds volume %d", vs.store.Ip, vs.store.Port, volumeMessage.Id)
+			// send
 			if err = stream.Send(deltaBeat); err != nil {
 				glog.V(0).Infof("Volume Server Failed to update to master %s: %v", masterAddress, err)
 				return "", err
 			}
-		case ecShardMessage := <-vs.store.NewEcShardsChan:
+		case ecShardMessage := <-vs.store.NewEcShardsChan: // 新增了ec shard
 			deltaBeat := &master_pb.Heartbeat{
 				NewEcShards: []*master_pb.VolumeEcShardInformationMessage{
 					&ecShardMessage,
@@ -172,7 +179,7 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 				glog.V(0).Infof("Volume Server Failed to update to master %s: %v", masterAddress, err)
 				return "", err
 			}
-		case volumeMessage := <-vs.store.DeletedVolumesChan:
+		case volumeMessage := <-vs.store.DeletedVolumesChan: // 删除了volume
 			deltaBeat := &master_pb.Heartbeat{
 				DeletedVolumes: []*master_pb.VolumeShortInformationMessage{
 					&volumeMessage,
@@ -183,7 +190,7 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 				glog.V(0).Infof("Volume Server Failed to update to master %s: %v", masterAddress, err)
 				return "", err
 			}
-		case ecShardMessage := <-vs.store.DeletedEcShardsChan:
+		case ecShardMessage := <-vs.store.DeletedEcShardsChan: // 删除了ec shard
 			deltaBeat := &master_pb.Heartbeat{
 				DeletedEcShards: []*master_pb.VolumeEcShardInformationMessage{
 					&ecShardMessage,
@@ -195,7 +202,7 @@ func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOpti
 				glog.V(0).Infof("Volume Server Failed to update to master %s: %v", masterAddress, err)
 				return "", err
 			}
-		case <-volumeTickChan:
+		case <-volumeTickChan: // 常规心跳
 			glog.V(4).Infof("volume server %s:%d heartbeat", vs.store.Ip, vs.store.Port)
 			vs.store.MaybeAdjustVolumeMax()
 			if err = stream.Send(vs.store.CollectHeartbeat()); err != nil {

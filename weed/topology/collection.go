@@ -10,9 +10,16 @@ import (
 )
 
 type Collection struct {
-	Name                     string
-	volumeSizeLimit          uint64
-	replicationAsMin         bool
+	Name             string
+	volumeSizeLimit  uint64
+	replicationAsMin bool
+	// 000: no replication
+	// 001: replicate once on the same rack
+	// 010: replicate once on a different rack, but same data center
+	// 100: replicate once on a different data center
+	// 200: replicate twice on two different data center
+	// 110: replicate once on a different rack, and once on a different data center
+	// 副本方案 -> volume layout
 	storageType2VolumeLayout *util.ConcurrentReadMap
 }
 

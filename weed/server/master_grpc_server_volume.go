@@ -20,6 +20,7 @@ import (
 
 func (ms *MasterServer) ProcessGrowRequest() {
 	go func() {
+		// 去重map
 		filter := sync.Map{}
 		for {
 			req, ok := <-ms.vgCh
@@ -35,6 +36,7 @@ func (ms *MasterServer) ProcessGrowRequest() {
 
 			// filter out identical requests being processed
 			found := false
+			// 去重
 			filter.Range(func(k, v interface{}) bool {
 				if reflect.DeepEqual(k, req) {
 					found = true
@@ -43,6 +45,7 @@ func (ms *MasterServer) ProcessGrowRequest() {
 			})
 
 			option := req.Option
+			// volumeLayout
 			vl := ms.Topo.GetVolumeLayout(option.Collection, option.ReplicaPlacement, option.Ttl, option.DiskType)
 
 			// not atomic but it's okay
@@ -52,6 +55,7 @@ func (ms *MasterServer) ProcessGrowRequest() {
 				go func() {
 					glog.V(1).Infoln("starting automatic volume grow")
 					start := time.Now()
+					// 新增volume
 					_, err := ms.vg.AutomaticGrowByType(req.Option, ms.grpcDialOption, ms.Topo, req.Count)
 					glog.V(1).Infoln("finished automatic volume grow, cost ", time.Now().Sub(start))
 					vl.DoneGrowRequest()
@@ -112,6 +116,7 @@ func (ms *MasterServer) Assign(ctx context.Context, req *master_pb.AssignRequest
 	if req.Replication == "" {
 		req.Replication = ms.option.DefaultReplicaPlacement
 	}
+	// 获取 副本方案
 	replicaPlacement, err := super_block.NewReplicaPlacementFromString(req.Replication)
 	if err != nil {
 		return nil, err
@@ -122,6 +127,7 @@ func (ms *MasterServer) Assign(ctx context.Context, req *master_pb.AssignRequest
 	}
 	diskType := types.ToDiskType(req.DiskType)
 
+	// 1.构造 VolumeGrowOption
 	option := &topology.VolumeGrowOption{
 		Collection:         req.Collection,
 		ReplicaPlacement:   replicaPlacement,
@@ -136,11 +142,13 @@ func (ms *MasterServer) Assign(ctx context.Context, req *master_pb.AssignRequest
 
 	vl := ms.Topo.GetVolumeLayout(option.Collection, option.ReplicaPlacement, option.Ttl, option.DiskType)
 
+	// 2.可能需要grow
 	if !vl.HasGrowRequest() && vl.ShouldGrowVolumes(option) {
 		if ms.Topo.AvailableSpaceFor(option) <= 0 {
 			return nil, fmt.Errorf("no free volumes left for " + option.String())
 		}
 		vl.AddGrowRequest()
+		// 放入chan
 		ms.vgCh <- &topology.VolumeGrowRequest{
 			Option: option,
 			Count:  int(req.WritableVolumeCount),
@@ -153,7 +161,9 @@ func (ms *MasterServer) Assign(ctx context.Context, req *master_pb.AssignRequest
 		startTime  = time.Now()
 	)
 
+	// 3.不断尝试直到有 可写的volume
 	for time.Now().Sub(startTime) < maxTimeout {
+		// pick
 		fid, count, dnList, err := ms.Topo.PickForWrite(req.Count, option)
 		if err == nil {
 			dn := dnList.Head()
@@ -165,6 +175,7 @@ func (ms *MasterServer) Assign(ctx context.Context, req *master_pb.AssignRequest
 					GrpcPort:  uint32(r.GrpcPort),
 				})
 			}
+			// response
 			return &master_pb.AssignResponse{
 				Fid: fid,
 				Location: &master_pb.Location{

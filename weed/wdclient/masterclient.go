@@ -152,6 +152,7 @@ func (mc *MasterClient) tryConnectToMaster(master pb.ServerAddress) (nextHintedL
 				// 保存新增的volume数据到本地内存中
 				for _, newVid := range resp.VolumeLocation.NewVids {
 					glog.V(1).Infof("%s: %s masterClient adds volume %d", mc.clientType, loc.Url, newVid)
+					// 保存到MasterClient的vidMap中
 					mc.addLocation(newVid, loc)
 				}
 				// 保存删除的volume数据到本地内存中

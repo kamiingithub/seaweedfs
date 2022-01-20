@@ -23,7 +23,7 @@ type DiskLocation struct {
 	MaxVolumeCount         int
 	OriginalMaxVolumeCount int
 	MinFreeSpace           util.MinFreeSpace
-	volumes                map[needle.VolumeId]*Volume
+	volumes                map[needle.VolumeId]*Volume // vid -> volume
 	volumesLock            sync.RWMutex
 
 	// erasure coding
@@ -123,6 +123,7 @@ func (l *DiskLocation) loadExistingVolume(dirEntry os.DirEntry, needleMapKind Ne
 	_, found := l.volumes[vid]
 	l.volumesLock.RUnlock()
 	if found {
+		// 已经load过的volume
 		glog.V(1).Infof("loaded volume, %v", vid)
 		return true
 	}
@@ -184,7 +185,7 @@ func (l *DiskLocation) concurrentLoadingVolumes(needleMapKind NeedleMapKind, con
 
 func (l *DiskLocation) loadExistingVolumes(needleMapKind NeedleMapKind) {
 
-	// 并发加载volumes
+	// 并发加载磁盘存在的volume
 	l.concurrentLoadingVolumes(needleMapKind, 10)
 	glog.V(0).Infof("Store started on dir: %s with %d volumes max %d", l.Directory, len(l.volumes), l.MaxVolumeCount)
 
@@ -196,6 +197,7 @@ func (l *DiskLocation) loadExistingVolumes(needleMapKind NeedleMapKind) {
 func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e error) {
 
 	l.volumesLock.Lock()
+	// 收集需要被卸载的volume
 	delVolsMap := l.unmountVolumeByCollection(collection)
 	l.volumesLock.Unlock()
 
@@ -208,6 +210,7 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e er
 	wg.Add(2)
 	go func() {
 		for _, v := range delVolsMap {
+			// 调用 volume 的 Destroy 直接从硬盘中删除 volume 相关数据
 			if err := v.Destroy(); err != nil {
 				errChain <- err
 			}

@@ -57,7 +57,7 @@ type MasterServer struct {
 
 	Topo *topology.Topology
 	vg   *topology.VolumeGrowth
-	vgCh chan *topology.VolumeGrowRequest
+	vgCh chan *topology.VolumeGrowRequest // VolumeGrowRequest
 
 	boundedLeaderChan chan int
 
@@ -128,14 +128,14 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 	r.HandleFunc("/", ms.proxyToLeader(ms.uiStatusHandler))
 	r.HandleFunc("/ui/index.html", ms.uiStatusHandler)
 	if !ms.option.DisableHttp {
-		r.HandleFunc("/dir/assign", ms.proxyToLeader(ms.guard.WhiteList(ms.dirAssignHandler)))
-		r.HandleFunc("/dir/lookup", ms.guard.WhiteList(ms.dirLookupHandler))
-		r.HandleFunc("/dir/status", ms.proxyToLeader(ms.guard.WhiteList(ms.dirStatusHandler)))
-		r.HandleFunc("/col/delete", ms.proxyToLeader(ms.guard.WhiteList(ms.collectionDeleteHandler)))
-		r.HandleFunc("/vol/grow", ms.proxyToLeader(ms.guard.WhiteList(ms.volumeGrowHandler)))
-		r.HandleFunc("/vol/status", ms.proxyToLeader(ms.guard.WhiteList(ms.volumeStatusHandler)))
-		r.HandleFunc("/vol/vacuum", ms.proxyToLeader(ms.guard.WhiteList(ms.volumeVacuumHandler)))
-		r.HandleFunc("/submit", ms.guard.WhiteList(ms.submitFromMasterServerHandler))
+		r.HandleFunc("/dir/assign", ms.proxyToLeader(ms.guard.WhiteList(ms.dirAssignHandler)))        // 分配volume和fileId
+		r.HandleFunc("/dir/lookup", ms.guard.WhiteList(ms.dirLookupHandler))                          // 根据vid查找location
+		r.HandleFunc("/dir/status", ms.proxyToLeader(ms.guard.WhiteList(ms.dirStatusHandler)))        // 查看整个topo的信息
+		r.HandleFunc("/col/delete", ms.proxyToLeader(ms.guard.WhiteList(ms.collectionDeleteHandler))) // 删除指定collection下的所有volume
+		r.HandleFunc("/vol/grow", ms.proxyToLeader(ms.guard.WhiteList(ms.volumeGrowHandler)))         // 增加volume
+		r.HandleFunc("/vol/status", ms.proxyToLeader(ms.guard.WhiteList(ms.volumeStatusHandler)))     // 查看所有volume的信息
+		r.HandleFunc("/vol/vacuum", ms.proxyToLeader(ms.guard.WhiteList(ms.volumeVacuumHandler)))     // 压缩volume
+		r.HandleFunc("/submit", ms.guard.WhiteList(ms.submitFromMasterServerHandler))                 // 直接通过master上传文件
 		/*
 			r.HandleFunc("/stats/health", ms.guard.WhiteList(statsHealthHandler))
 			r.HandleFunc("/stats/counter", ms.guard.WhiteList(statsCounterHandler))
@@ -146,6 +146,7 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 
 	// 1.leader将已满的volume从可写列表移除
 	// 2.会向各个 volume 发出 Compact 指令, 采用复制算法进行空洞压缩
+	// 3.启动定时任务,每15分钟压缩一次
 	ms.Topo.StartRefreshWritableVolumes(
 		ms.grpcDialOption,
 		ms.option.GarbageThreshold,
@@ -153,6 +154,7 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers []pb.ServerAddre
 		ms.preallocateSize,
 	)
 
+	// 异步处理grow volume请求
 	ms.ProcessGrowRequest()
 
 	if !option.IsFollower {

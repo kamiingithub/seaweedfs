@@ -124,6 +124,7 @@ func (t *Topology) Lookup(collection string, vid needle.VolumeId) (dataNodes []*
 func (t *Topology) NextVolumeId() (needle.VolumeId, error) {
 	vid := t.GetMaxVolumeId()
 	next := vid.Next()
+	// 把最大vid同步给其他master
 	if _, err := t.RaftServer.Do(NewMaxVolumeIdCommand(next)); err != nil {
 		return 0, err
 	}
@@ -137,7 +138,8 @@ func (t *Topology) HasWritableVolume(option *VolumeGrowOption) bool {
 	return active > 0
 }
 
-// 获取指定个数的可写节点, 递归调用 VolumeLayout 的 PickForWrite, 本地操作
+// 从对应的volume layout中pick出可写的volume
+// 并生成fileId返回
 func (t *Topology) PickForWrite(count uint64, option *VolumeGrowOption) (string, uint64, *VolumeLocationList, error) {
 	vid, count, datanodes, err := t.GetVolumeLayout(option.Collection, option.ReplicaPlacement, option.Ttl, option.DiskType).PickForWrite(count, option)
 	if err != nil {
@@ -146,6 +148,7 @@ func (t *Topology) PickForWrite(count uint64, option *VolumeGrowOption) (string,
 	if datanodes.Length() == 0 {
 		return "", 0, nil, fmt.Errorf("no writable volumes available for collection:%s replication:%s ttl:%s", option.Collection, option.ReplicaPlacement.String(), option.Ttl.String())
 	}
+	// 生成fileId
 	fileId := t.Sequence.NextFileId(count)
 	return needle.NewFileId(*vid, fileId, rand.Uint32()).String(), count, datanodes, nil
 }
@@ -203,6 +206,7 @@ func (t *Topology) DeleteLayout(collectionName string, rp *super_block.ReplicaPl
 func (t *Topology) RegisterVolumeLayout(v storage.VolumeInfo, dn *DataNode) {
 	diskType := types.ToDiskType(v.DiskType)
 	vl := t.GetVolumeLayout(v.Collection, v.ReplicaPlacement, v.Ttl, diskType)
+	// 注册到layout的 vid2location[vid]Locations
 	vl.RegisterVolume(&v, dn)
 	vl.EnsureCorrectWritables(&v)
 }

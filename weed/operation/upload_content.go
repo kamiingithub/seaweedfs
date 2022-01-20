@@ -74,6 +74,7 @@ var fileNameEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", "")
 
 // Upload sends a POST request to a volume server to upload the content with adjustable compression level
 func UploadData(data []byte, option *UploadOption) (uploadResult *UploadResult, err error) {
+	// 可重试load data给其他volume
 	uploadResult, err = retriedUploadData(data, option)
 	return
 }
@@ -101,6 +102,7 @@ func doUpload(reader io.Reader, option *UploadOption) (uploadResult *UploadResul
 
 func retriedUploadData(data []byte, option *UploadOption) (uploadResult *UploadResult, err error) {
 	for i := 0; i < 3; i++ {
+		// upload
 		uploadResult, err = doUploadData(data, option)
 		if err == nil {
 			uploadResult.RetryCount = i
@@ -166,6 +168,7 @@ func doUploadData(data []byte, option *UploadOption) (uploadResult *UploadResult
 		}
 
 		// upload data
+		// 上传
 		uploadResult, err = upload_content(func(w io.Writer) (err error) {
 			_, err = w.Write(encryptedData)
 			return
@@ -257,6 +260,7 @@ func upload_content(fillBufferFunction func(w io.Writer) error, originalDataSize
 		req.Header.Set("Authorization", "BEARER "+string(option.Jwt))
 	}
 	// print("+")
+	// 调用http
 	resp, post_err := HttpClient.Do(req)
 	if post_err != nil {
 		if strings.Contains(post_err.Error(), "connection reset by peer") ||

@@ -114,12 +114,14 @@ func (v *Volume) writeNeedle2(n *needle.Needle, checkCookie bool, fsync bool) (o
 	}
 
 	if !fsync {
+		// 同步写
 		return v.syncWrite(n, checkCookie)
 	} else {
 		asyncRequest := needle.NewAsyncRequest(n, true)
 		// using len(n.Data) here instead of n.Size before n.Size is populated in n.Append()
 		asyncRequest.ActualSize = needle.GetActualSize(Size(len(n.Data)), v.Version())
 
+		// 异步放chan
 		v.asyncRequestAppend(asyncRequest)
 		offset, _, isUnchanged, err = asyncRequest.WaitComplete()
 
@@ -157,6 +159,7 @@ func (v *Volume) doWriteRequest(n *needle.Needle, checkCookie bool) (offset uint
 	}
 
 	// append to dat file
+	// 写到 .dat
 	n.AppendAtNs = uint64(time.Now().UnixNano())
 	offset, size, _, err = n.Append(v.DataBackend, v.Version())
 	v.checkReadWriteError(err)
@@ -276,6 +279,7 @@ func (v *Volume) startWorker() {
 
 			for i := 0; i < len(currentRequests); i++ {
 				if currentRequests[i].IsWriteRequest {
+					// 写
 					offset, size, isUnchanged, err := v.doWriteRequest(currentRequests[i].N, true)
 					currentRequests[i].UpdateResult(offset, uint64(size), isUnchanged, err)
 				} else {
@@ -285,8 +289,10 @@ func (v *Volume) startWorker() {
 			}
 
 			// if sync error, data is not reliable, we should mark the completed request as fail and rollback
+			// sync到磁盘上
 			if err := v.DataBackend.Sync(); err != nil {
 				// todo: this may generate dirty data or cause data inconsistent, may be weed need to panic?
+				// sync失败则truncate
 				if te := v.DataBackend.Truncate(end); te != nil {
 					glog.V(0).Infof("Failed to truncate %s back to %d with error: %v", v.DataBackend.Name(), end, te)
 				}

@@ -69,6 +69,7 @@ func (g *Guard) WhiteList(f http.HandlerFunc) http.HandlerFunc {
 		return f
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
+		// 白名单
 		if err := g.checkWhiteList(w, r); err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			return

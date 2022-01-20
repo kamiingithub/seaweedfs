@@ -151,11 +151,13 @@ func (vl *VolumeLayout) RegisterVolume(v *storage.VolumeInfo, dn *DataNode) {
 
 	defer vl.rememberOversizedVolume(v, dn)
 
+	// 放到 vid2location (volume -> data node)
 	if _, ok := vl.vid2location[v.Id]; !ok {
 		vl.vid2location[v.Id] = NewVolumeLocationList()
 	}
 	vl.vid2location[v.Id].Set(dn)
 	// glog.V(4).Infof("volume %d added to %s len %d copy %d", v.Id, dn.Id(), vl.vid2location[v.Id].Length(), v.ReplicaPlacement.GetCopyCount())
+	// 设置volume的读写状态
 	for _, dn := range vl.vid2location[v.Id].list {
 		if vInfo, err := dn.GetVolumesById(v.Id); err == nil {
 			if vInfo.ReadOnly {
@@ -282,6 +284,7 @@ func (vl *VolumeLayout) PickForWrite(count uint64, option *VolumeGrowOption) (*n
 		return nil, 0, nil, errors.New("No more writable volumes!")
 	}
 	if option.DataCenter == "" && option.Rack == "" && option.DataNode == "" {
+		// 随机从可写vid列表里选择一个vid
 		vid := vl.writables[rand.Intn(lenWriters)]
 		locationList := vl.vid2location[vid]
 		if locationList != nil {
@@ -292,6 +295,7 @@ func (vl *VolumeLayout) PickForWrite(count uint64, option *VolumeGrowOption) (*n
 	var vid needle.VolumeId
 	var locationList *VolumeLocationList
 	counter := 0
+	// 依次匹配 dataCenter rack dataNode
 	for _, v := range vl.writables {
 		volumeLocationList := vl.vid2location[v]
 		for _, dn := range volumeLocationList.list {
@@ -328,7 +332,9 @@ func (vl *VolumeLayout) DoneGrowRequest() {
 	vl.growRequestCount = 0
 }
 
+// 需要grow
 func (vl *VolumeLayout) ShouldGrowVolumes(option *VolumeGrowOption) bool {
+	// 获取volume数
 	active, crowded := vl.GetActiveVolumeCount(option)
 	//glog.V(0).Infof("active volume: %d, high usage volume: %d\n", active, high)
 	return active <= crowded

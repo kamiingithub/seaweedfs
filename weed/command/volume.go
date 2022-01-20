@@ -208,7 +208,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 
 	volumeMux := http.NewServeMux()
 	publicVolumeMux := volumeMux
-	// 公网端口 和 内网端口不一样
+	// 当配置了公网端口
 	if v.isSeparatedPublicPort() {
 		publicVolumeMux = http.NewServeMux()
 	}
@@ -231,7 +231,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		volumeNeedleMapKind = storage.NeedleMapLevelDbLarge
 	}
 
-	// 构建volume server 1)加载卷信息 2)注册内部handler 3)向master发送心跳
+	// 5.构建volume server 1)加载卷信息 2)注册内部handler 3)向master发送心跳
 	volumeServer := weed_server.NewVolumeServer(volumeMux, publicVolumeMux,
 		*v.ip, *v.port, *v.portGrpc, *v.publicUrl,
 		v.folders, v.folderMaxLimits, minFreeSpaces, diskTypes,
@@ -323,6 +323,7 @@ func (v VolumeServerOptions) startGrpcService(vs volume_server_pb.VolumeServerSe
 		glog.Fatalf("failed to listen on grpc port %d: %v", grpcPort, err)
 	}
 	grpcS := pb.NewGrpcServer(security.LoadServerTLS(util.GetViper(), "grpc.volume"))
+	// 注册volumeServer搭配gprc
 	volume_server_pb.RegisterVolumeServerServer(grpcS, vs)
 	reflection.Register(grpcS)
 	go func() {

@@ -57,17 +57,13 @@ func (s *Store) String() (str string) {
 }
 
 // 读取 store 信息, 会递归加载 所有目录下的 volume 信息 Store -> DiskLocation -> Volume
-// 从 .vif 文件中解析得到VolumeInfo
-// 从 .dat 文件中加载得到各个 needle 数据信息;并读取超级块信息
-// 从 .idx 文件中 获取 索引信息,并保存在leveldb中; 获取索引信息,并保存在leveldb中
-// 并获取 最大 的 file key, 统计 所有文件总的 大小, 删除 文件 总的 次数, 删除 文件 总的 大小
 func NewStore(grpcDialOption grpc.DialOption, ip string, port int, grpcPort int, publicUrl string, dirnames []string, maxVolumeCounts []int,
 	minFreeSpaces []util.MinFreeSpace, idxFolder string, needleMapKind NeedleMapKind, diskTypes []DiskType) (s *Store) {
 	s = &Store{grpcDialOption: grpcDialOption, Port: port, Ip: ip, GrpcPort: grpcPort, PublicUrl: publicUrl, NeedleMapKind: needleMapKind}
 	s.Locations = make([]*DiskLocation, 0)
 	for i := 0; i < len(dirnames); i++ {
 		location := NewDiskLocation(dirnames[i], maxVolumeCounts[i], minFreeSpaces[i], idxFolder, diskTypes[i])
-		// 加载存在的文件信息 todo
+		// 加载磁盘上volume信息到内存
 		location.loadExistingVolumes(needleMapKind)
 		s.Locations = append(s.Locations, location)
 		stats.VolumeServerMaxVolumeCounter.Add(float64(maxVolumeCounts[i]))
@@ -94,6 +90,7 @@ func (s *Store) AddVolume(volumeId needle.VolumeId, collection string, needleMap
 }
 func (s *Store) DeleteCollection(collection string) (e error) {
 	for _, location := range s.Locations {
+		// 在磁盘上删除collection下的所有volume
 		e = location.DeleteCollectionFromDiskLocation(collection)
 		if e != nil {
 			return
@@ -138,9 +135,11 @@ func (s *Store) addVolume(vid needle.VolumeId, collection string, needleMapKind 
 	if location := s.FindFreeLocation(diskType); location != nil {
 		glog.V(0).Infof("In dir %s adds volume:%v collection:%s replicaPlacement:%v ttl:%v",
 			location.Directory, vid, collection, replicaPlacement, ttl)
+		// 创建volume
 		if volume, err := NewVolume(location.Directory, location.IdxDirectory, collection, vid, needleMapKind, replicaPlacement, ttl, preallocate, memoryMapMaxSizeMb); err == nil {
 			location.SetVolume(vid, volume)
 			glog.V(0).Infof("add volume %d", vid)
+			// 放进chan 待/sendHeartBeat时通知leader master
 			s.NewVolumesChan <- master_pb.VolumeShortInformationMessage{
 				Id:               uint32(vid),
 				Collection:       collection,
@@ -219,6 +218,7 @@ func (s *Store) GetRack() string {
 	return s.rack
 }
 
+// 构建心跳体
 func (s *Store) CollectHeartbeat() *master_pb.Heartbeat {
 	var volumeMessages []*master_pb.VolumeInformationMessage
 	maxVolumeCounts := make(map[string]uint32)

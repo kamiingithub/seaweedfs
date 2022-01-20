@@ -65,6 +65,7 @@ func (vs *VolumeServer) privateStoreHandler(w http.ResponseWriter, r *http.Reque
 
 		// processs uploads
 		stats.WriteRequest()
+		// 处理文件上传
 		vs.guard.WhiteList(vs.PostHandler)(w, r)
 
 	case "OPTIONS":

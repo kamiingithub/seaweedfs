@@ -57,6 +57,7 @@ func NewVolume(dirname string, dirIdx string, collection string, id needle.Volum
 	v.SuperBlock = super_block.SuperBlock{ReplicaPlacement: replicaPlacement, Ttl: ttl}
 	v.needleMapKind = needleMapKind
 	e = v.load(true, true, needleMapKind, preallocate)
+	// 启动异步上传文件 worker
 	v.startWorker()
 	return
 }

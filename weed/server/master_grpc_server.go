@@ -17,6 +17,7 @@ import (
 	"github.com/chrislusf/seaweedfs/weed/topology"
 )
 
+// leader master接收volume心跳
 func (ms *MasterServer) SendHeartbeat(stream master_pb.Seaweed_SendHeartbeatServer) error {
 	var dn *topology.DataNode
 
@@ -89,6 +90,7 @@ func (ms *MasterServer) SendHeartbeat(stream master_pb.Seaweed_SendHeartbeatServ
 			PublicUrl:  dn.PublicUrl,
 			DataCenter: dataCenter,
 		}
+		// 更新了volume数量
 		if len(heartbeat.NewVolumes) > 0 || len(heartbeat.DeletedVolumes) > 0 {
 			// process delta volume ids if exists for fast volume id updates
 			for _, volInfo := range heartbeat.NewVolumes {
@@ -98,6 +100,7 @@ func (ms *MasterServer) SendHeartbeat(stream master_pb.Seaweed_SendHeartbeatServ
 				message.DeletedVids = append(message.DeletedVids, volInfo.Id)
 			}
 			// update master internal volume layouts
+			// 更新master内部的volume layouts
 			ms.Topo.IncrementalSyncDataNodeRegistration(heartbeat.NewVolumes, heartbeat.DeletedVolumes, dn)
 		}
 
@@ -149,6 +152,8 @@ func (ms *MasterServer) SendHeartbeat(stream master_pb.Seaweed_SendHeartbeatServ
 
 		}
 		if len(message.NewVids) > 0 || len(message.DeletedVids) > 0 {
+			// 广播给其他master
+			// todo 哪里取？？？
 			ms.broadcastToClients(&master_pb.KeepConnectedResponse{VolumeLocation: message})
 		}
 
@@ -233,6 +238,10 @@ func (ms *MasterServer) KeepConnected(stream master_pb.Seaweed_KeepConnectedServ
 
 }
 
+// 发送消息给所有的 channel, 这样所有消息都能在所有 master 之间传递了
+// master之间通过 KeepConnected 关联到 leader master,每个master在leader master上关联一个clientChans
+// 一旦 leader master 收到 volume server 的 SendHeartbeat 心跳请求知道 各个 volume server 上有数据变更时
+// 就向 clientChans 写入消息, 这样信息就从 leader master传向了其他master了
 func (ms *MasterServer) broadcastToClients(message *master_pb.KeepConnectedResponse) {
 	ms.clientChansLock.RLock()
 	for _, ch := range ms.clientChans {
