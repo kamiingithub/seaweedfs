@@ -45,6 +45,7 @@ func (c *Collection) GetOrCreateVolumeLayout(rp *super_block.ReplicaPlacement, t
 	if diskType != types.HardDriveType {
 		keyString += string(diskType)
 	}
+	// 根据rp获取layout
 	vl := c.storageType2VolumeLayout.Get(keyString, func() interface{} {
 		return NewVolumeLayout(rp, ttl, diskType, c.volumeSizeLimit, c.replicationAsMin)
 	})

@@ -142,11 +142,13 @@ func startMaster(masterOption MasterOptions, masterWhiteList []string) {
 	if err != nil {
 		glog.Fatalf("master failed to listen on grpc port %d: %v", grpcPort, err)
 	}
+	// 创建grpcServer
 	grpcS := pb.NewGrpcServer(security.LoadServerTLS(util.GetViper(), "grpc.master"))
 	// 把masterServer注册到grpc
 	master_pb.RegisterSeaweedServer(grpcS, ms)
 	// 把raftServer注册到grpc
 	protobuf.RegisterRaftServer(grpcS, raftServer)
+	// 注册grpcServer
 	reflection.Register(grpcS)
 	glog.V(0).Infof("Start Seaweed Master %s grpc server at %s:%d", util.Version(), *masterOption.ipBind, grpcPort)
 	// 监听gprc请求

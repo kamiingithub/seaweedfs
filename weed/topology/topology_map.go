@@ -32,6 +32,8 @@ func (t *Topology) ToVolumeMap() interface{} {
 	m["Max"] = t.diskUsages.GetMaxVolumeCount()
 	m["Free"] = t.diskUsages.FreeSpace()
 	dcs := make(map[NodeId]interface{})
+	// 这里体现了topo的拓扑结构
+	// topo -> dataCenter -> rack -> dataNode -> volume
 	for _, c := range t.Children() {
 		dc := c.(*DataCenter)
 		racks := make(map[NodeId]interface{})

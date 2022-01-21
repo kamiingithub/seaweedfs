@@ -50,6 +50,7 @@ func (vs *VolumeServer) privateStoreHandler(w http.ResponseWriter, r *http.Reque
 	case "PUT", "POST":
 
 		// wait until in flight data is less than the limit
+		// 上传控制阀
 		contentLength := getContentLength(r)
 		vs.inFlightUploadDataLimitCond.L.Lock()
 		for vs.concurrentUploadLimit != 0 && atomic.LoadInt64(&vs.inFlightUploadDataSize) > vs.concurrentUploadLimit {
@@ -57,6 +58,7 @@ func (vs *VolumeServer) privateStoreHandler(w http.ResponseWriter, r *http.Reque
 			vs.inFlightUploadDataLimitCond.Wait()
 		}
 		vs.inFlightUploadDataLimitCond.L.Unlock()
+		// 增加inFlight
 		atomic.AddInt64(&vs.inFlightUploadDataSize, contentLength)
 		defer func() {
 			atomic.AddInt64(&vs.inFlightUploadDataSize, -contentLength)

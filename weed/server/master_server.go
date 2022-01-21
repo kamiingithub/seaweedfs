@@ -56,7 +56,7 @@ type MasterServer struct {
 	preallocateSize int64
 
 	Topo *topology.Topology
-	vg   *topology.VolumeGrowth
+	vg   *topology.VolumeGrowth // grow组件
 	vgCh chan *topology.VolumeGrowRequest // VolumeGrowRequest
 
 	boundedLeaderChan chan int

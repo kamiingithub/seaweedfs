@@ -77,6 +77,7 @@ func NewRaftServer(grpcDialOption grpc.DialOption, peers []pb.ServerAddress, ser
 		os.RemoveAll(path.Join(s.dataDir, "log"))
 		os.RemoveAll(path.Join(s.dataDir, "snapshot"))
 	}
+	// 在dataDir下创建snapshot文件夹
 	if err := os.MkdirAll(path.Join(s.dataDir, "snapshot"), 0600); err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ func NewRaftServer(grpcDialOption grpc.DialOption, peers []pb.ServerAddress, ser
 		glog.V(0).Infoln(err)
 		return nil, err
 	}
-	// 设置心跳间隔 300ms-450ms
+	// 设置心跳间隔 300ms-450ms (这里不会执行，因为这时还没有peers)
 	s.raftServer.SetHeartbeatInterval(time.Duration(300+rand.Intn(150)) * time.Millisecond)
 	s.raftServer.SetElectionTimeout(10 * time.Second)
 	// 尝试从本地解析snapshot文件并加载到内存
@@ -99,6 +100,7 @@ func NewRaftServer(grpcDialOption grpc.DialOption, peers []pb.ServerAddress, ser
 		return nil, err
 	}
 
+	// 添加peer
 	for _, peer := range s.peers {
 		// add peer
 		if err := s.raftServer.AddPeer(string(peer), peer.ToGrpcAddress()); err != nil {

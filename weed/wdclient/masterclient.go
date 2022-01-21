@@ -81,16 +81,19 @@ func (mc *MasterClient) FindLeaderFromOtherPeers(myMasterAddress pb.ServerAddres
 	return
 }
 
+// 尝试连接所有master知道找到leader
 func (mc *MasterClient) tryAllMasters() {
 	var nextHintedLeader pb.ServerAddress
 	for _, master := range mc.masters {
 
+		// 第一次可能去一个非leader的master，它会返回leader master
 		nextHintedLeader = mc.tryConnectToMaster(master)
-		// leader master 有变动
+		// 找到或切换leader master
 		for nextHintedLeader != "" {
 			nextHintedLeader = mc.tryConnectToMaster(nextHintedLeader)
 		}
 
+		// 退出连接，清空状态
 		mc.currentMaster = ""
 		mc.vidMap = newVidMap("")
 	}
@@ -113,6 +116,7 @@ func (mc *MasterClient) tryConnectToMaster(master pb.ServerAddress) (nextHintedL
 			return err
 		}
 
+		// 先向leader发送 KeepConnectedRequest
 		if err = stream.Send(&master_pb.KeepConnectedRequest{
 			ClientType:    mc.clientType,
 			ClientAddress: string(mc.clientHost),
