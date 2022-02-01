@@ -284,7 +284,7 @@ func (vl *VolumeLayout) PickForWrite(count uint64, option *VolumeGrowOption) (*n
 		return nil, 0, nil, errors.New("No more writable volumes!")
 	}
 	if option.DataCenter == "" && option.Rack == "" && option.DataNode == "" {
-		// 随机从可写vid列表里选择一个vid
+		// 从可写vid列表里随机选择一个
 		vid := vl.writables[rand.Intn(lenWriters)]
 		locationList := vl.vid2location[vid]
 		if locationList != nil {

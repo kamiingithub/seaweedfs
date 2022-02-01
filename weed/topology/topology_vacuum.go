@@ -209,10 +209,10 @@ func (t *Topology) vacuumOneVolumeLayout(grpcDialOption grpc.DialOption, volumeL
 			// 批量压缩volume
 			// volume server先把有用的数据从 .idx 和 .dat复制到临时文件
 			if t.batchVacuumVolumeCompact(grpcDialOption, volumeLayout, vid, vacuumLocationList, preallocate) {
-				// rename临时文件，替换
+				// rename临时文件，完成替换
 				t.batchVacuumVolumeCommit(grpcDialOption, volumeLayout, vid, vacuumLocationList)
 			} else {
-				// 删除临时文件
+				// 删除临时文件，撤销压缩
 				t.batchVacuumVolumeCleanup(grpcDialOption, volumeLayout, vid, vacuumLocationList)
 			}
 		}

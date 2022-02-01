@@ -118,7 +118,7 @@ func (ms *MasterServer) dirAssignHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 从topo.collectionMap中获取(or 创建) volumeLayout
+	// 0.从topo.collectionMap中获取(or 创建) volumeLayout
 	vl := ms.Topo.GetVolumeLayout(option.Collection, option.ReplicaPlacement, option.Ttl, option.DiskType)
 
 	// 1.可能grow volume
@@ -137,6 +137,7 @@ func (ms *MasterServer) dirAssignHandler(w http.ResponseWriter, r *http.Request)
 			Count:  writableVolumeCount,
 			ErrCh:  errCh,
 		}
+		// 这里会阻塞到grow结束
 		if err := <-errCh; err != nil {
 			writeJsonError(w, r, http.StatusInternalServerError, fmt.Errorf("cannot grow volume group! %v", err))
 			return

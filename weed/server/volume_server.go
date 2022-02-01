@@ -108,7 +108,7 @@ func NewVolumeServer(adminMux, publicMux *http.ServeMux, ip string,
 			adminMux.HandleFunc("/stats/disk", vs.guard.WhiteList(vs.statsDiskHandler))
 		*/
 	}
-	// 2)绑定http handler
+	// 2)绑定handler到http
 	adminMux.HandleFunc("/", vs.privateStoreHandler)
 	if publicMux != adminMux {
 		// separated admin and public port

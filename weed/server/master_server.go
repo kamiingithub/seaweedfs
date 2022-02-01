@@ -56,7 +56,7 @@ type MasterServer struct {
 	preallocateSize int64
 
 	Topo *topology.Topology
-	vg   *topology.VolumeGrowth // grow组件
+	vg   *topology.VolumeGrowth           // grow组件
 	vgCh chan *topology.VolumeGrowRequest // VolumeGrowRequest
 
 	boundedLeaderChan chan int
@@ -173,6 +173,7 @@ func (ms *MasterServer) SetRaftServer(raftServer *RaftServer) {
 			glog.V(0).Infoln("[", ms.Topo.RaftServer.Name(), "]", ms.Topo.RaftServer.Leader(), "becomes leader.")
 		}
 	})
+	// 这里会尝试从raft获取leader
 	if ms.Topo.IsLeader() {
 		glog.V(0).Infoln("[", ms.Topo.RaftServer.Name(), "]", "I am the leader!")
 	} else {

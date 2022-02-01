@@ -81,7 +81,7 @@ func (mc *MasterClient) FindLeaderFromOtherPeers(myMasterAddress pb.ServerAddres
 	return
 }
 
-// 尝试连接所有master知道找到leader
+// 尝试连接所有master直到找到leader
 func (mc *MasterClient) tryAllMasters() {
 	var nextHintedLeader pb.ServerAddress
 	for _, master := range mc.masters {
@@ -109,7 +109,7 @@ func (mc *MasterClient) tryConnectToMaster(master pb.ServerAddress) (nextHintedL
 
 		// stream 是 seaweedKeepConnectedClient
 		// 向leader master发起请求,接收哪些节点有哪些volume变动
-		// 每个volumeServer会向leader master发送heartbeat以报告它所处节点有哪些 volume 变更了
+		// 另外，每个volumeServer会向leader master发送heartbeat以报告它所处节点有哪些 volume 变更了
 		stream, err := client.KeepConnected(ctx)
 		if err != nil {
 			glog.V(1).Infof("%s masterClient failed to keep connected to %s: %v", mc.clientType, master, err)

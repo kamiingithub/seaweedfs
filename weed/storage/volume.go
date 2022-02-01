@@ -52,10 +52,12 @@ type Volume struct {
 
 func NewVolume(dirname string, dirIdx string, collection string, id needle.VolumeId, needleMapKind NeedleMapKind, replicaPlacement *super_block.ReplicaPlacement, ttl *needle.TTL, preallocate int64, memoryMapMaxSizeMb uint32) (v *Volume, e error) {
 	// if replicaPlacement is nil, the superblock will be loaded from disk
+	// 实例化Volume
 	v = &Volume{dir: dirname, dirIdx: dirIdx, Collection: collection, Id: id, MemoryMapMaxSizeMb: memoryMapMaxSizeMb,
 		asyncRequestsChan: make(chan *needle.AsyncRequest, 128)}
 	v.SuperBlock = super_block.SuperBlock{ReplicaPlacement: replicaPlacement, Ttl: ttl}
 	v.needleMapKind = needleMapKind
+	// 加载
 	e = v.load(true, true, needleMapKind, preallocate)
 	// 启动异步上传文件 worker
 	v.startWorker()

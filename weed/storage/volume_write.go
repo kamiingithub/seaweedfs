@@ -159,7 +159,7 @@ func (v *Volume) doWriteRequest(n *needle.Needle, checkCookie bool) (offset uint
 	}
 
 	// append to dat file
-	// 写到 .dat
+	// append到 .dat
 	n.AppendAtNs = uint64(time.Now().UnixNano())
 	offset, size, _, err = n.Append(v.DataBackend, v.Version())
 	v.checkReadWriteError(err)
@@ -219,12 +219,14 @@ func (v *Volume) doDeleteRequest(n *needle.Needle) (Size, error) {
 		size := nv.Size
 		n.Data = nil
 		n.AppendAtNs = uint64(time.Now().UnixNano())
+		// append
 		offset, _, _, err := n.Append(v.DataBackend, v.Version())
 		v.checkReadWriteError(err)
 		if err != nil {
 			return size, err
 		}
 		v.lastAppendAtNs = n.AppendAtNs
+		// delete
 		if err = v.nm.Delete(n.Id, ToOffset(int64(offset))); err != nil {
 			return size, err
 		}
@@ -281,6 +283,7 @@ func (v *Volume) startWorker() {
 				if currentRequests[i].IsWriteRequest {
 					// 写
 					offset, size, isUnchanged, err := v.doWriteRequest(currentRequests[i].N, true)
+					// 更新信息
 					currentRequests[i].UpdateResult(offset, uint64(size), isUnchanged, err)
 				} else {
 					size, err := v.doDeleteRequest(currentRequests[i].N)

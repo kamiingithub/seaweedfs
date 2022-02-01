@@ -136,14 +136,14 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 
 	// Set multiple folders and each folder's max volume count limit'
 	v.folders = strings.Split(volumeFolders, ",")
-	// 1.测试是否可写
+	// 测试目录是否可写
 	for _, folder := range v.folders {
 		if err := util.TestFolderWritable(util.ResolvePath(folder)); err != nil {
 			glog.Fatalf("Check Data Folder(-dir) Writable %s : %s", folder, err)
 		}
 	}
 
-	// 2.为每个folder设置max volume数
+	// 1.为每个folder设置max volume
 	maxCountStrings := strings.Split(maxVolumeCounts, ",")
 	for _, maxString := range maxCountStrings {
 		if max, e := strconv.Atoi(maxString); e == nil {
@@ -161,7 +161,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		glog.Fatalf("%d directories by -dir, but only %d max is set by -max", len(v.folders), len(v.folderMaxLimits))
 	}
 
-	// 3.为每个folder设置minFreeSpaces
+	// 2.设置minFreeSpaces
 	if len(minFreeSpaces) == 1 && len(v.folders) > 1 {
 		for i := 0; i < len(v.folders)-1; i++ {
 			minFreeSpaces = append(minFreeSpaces, minFreeSpaces[0])
@@ -171,7 +171,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		glog.Fatalf("%d directories by -dir, but only %d minFreeSpacePercent is set by -minFreeSpacePercent", len(v.folders), len(minFreeSpaces))
 	}
 
-	// 4.set disk types
+	// 3.set disk types
 	var diskTypes []types.DiskType
 	diskTypeStrings := strings.Split(*v.diskType, ",")
 	for _, diskTypeString := range diskTypeStrings {
@@ -231,7 +231,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		volumeNeedleMapKind = storage.NeedleMapLevelDbLarge
 	}
 
-	// 5.构建volume server 1)加载卷信息 2)注册内部handler 3)向master发送心跳
+	// 4.构建volume server 1)加载卷信息 2)注册内部handler 3)向master发送心跳
 	volumeServer := weed_server.NewVolumeServer(volumeMux, publicVolumeMux,
 		*v.ip, *v.port, *v.portGrpc, *v.publicUrl,
 		v.folders, v.folderMaxLimits, minFreeSpaces, diskTypes,
@@ -266,7 +266,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	clusterHttpServer := v.startClusterHttpService(volumeMux)
 
 	stopChan := make(chan bool)
-	// 优雅退出
+	// 5.设置优雅退出函数
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has be killed")
 
@@ -303,8 +303,10 @@ func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server,
 	}
 
 	glog.V(0).Infof("graceful stop gRPC ...")
+	// stop grpc
 	grpcS.GracefulStop()
 
+	// stop volume server
 	volumeServer.Shutdown()
 
 	pprof.StopCPUProfile()

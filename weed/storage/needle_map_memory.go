@@ -57,6 +57,7 @@ func doLoading(file *os.File, nm *NeedleMap) (*NeedleMap, error) {
 func (nm *NeedleMap) Put(key NeedleId, offset Offset, size Size) error {
 	_, oldSize := nm.m.Set(NeedleId(key), offset, size)
 	nm.logPut(key, oldSize, size)
+	// append到.idx
 	return nm.appendToIndexFile(key, offset, size)
 }
 func (nm *NeedleMap) Get(key NeedleId) (element *needle_map.NeedleValue, ok bool) {
@@ -66,6 +67,7 @@ func (nm *NeedleMap) Get(key NeedleId) (element *needle_map.NeedleValue, ok bool
 func (nm *NeedleMap) Delete(key NeedleId, offset Offset) error {
 	deletedBytes := nm.m.Delete(NeedleId(key))
 	nm.logDelete(deletedBytes)
+	// 写入墓碑文件大小:-1表示del
 	return nm.appendToIndexFile(key, offset, TombstoneFileSize)
 }
 func (nm *NeedleMap) Close() {

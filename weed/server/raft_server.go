@@ -83,6 +83,7 @@ func NewRaftServer(grpcDialOption grpc.DialOption, peers []pb.ServerAddress, ser
 	}
 
 	stateMachine := StateMachine{topo: topo}
+	// 构建raftServer
 	s.raftServer, err = raft.NewServer(string(s.serverAddr), s.dataDir, transporter, stateMachine, topo, "")
 	if err != nil {
 		glog.V(0).Infoln(err)

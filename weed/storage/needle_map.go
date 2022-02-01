@@ -56,6 +56,7 @@ func (nm *baseNeedleMapper) appendToIndexFile(key NeedleId, offset Offset, size 
 
 	nm.indexFileAccessLock.Lock()
 	defer nm.indexFileAccessLock.Unlock()
+	// 写 .idx
 	written, err := nm.indexFile.WriteAt(bytes, nm.indexFileOffset)
 	if err == nil {
 		nm.indexFileOffset += int64(written)

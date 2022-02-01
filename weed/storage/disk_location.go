@@ -129,6 +129,7 @@ func (l *DiskLocation) loadExistingVolume(dirEntry os.DirEntry, needleMapKind Ne
 	}
 
 	// load the volume
+	// 加载volume
 	v, e := NewVolume(l.Directory, l.IdxDirectory, collection, vid, needleMapKind, nil, nil, 0, 0)
 	if e != nil {
 		glog.V(0).Infof("new volume %s error %s", volumeName, e)

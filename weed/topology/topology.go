@@ -68,9 +68,11 @@ func NewTopology(id string, seq sequence.Sequencer, volumeSizeLimit uint64, puls
 
 func (t *Topology) IsLeader() bool {
 	if t.RaftServer != nil {
+		// 直接就是leader
 		if t.RaftServer.State() == raft.Leader {
 			return true
 		}
+		// 尝试从raft中获取leader
 		if leader, err := t.Leader(); err == nil {
 			if pb.ServerAddress(t.RaftServer.Name()) == leader {
 				return true
@@ -89,8 +91,10 @@ func (t *Topology) Leader() (pb.ServerAddress, error) {
 			return "", errors.New("Raft Server not ready yet!")
 		}
 		if l != "" {
+			// 获取到leader
 			break
 		} else {
+			// 休眠5s 6s 7s
 			time.Sleep(time.Duration(5+count) * time.Second)
 		}
 	}

@@ -132,6 +132,7 @@ func (s *Store) addVolume(vid needle.VolumeId, collection string, needleMapKind 
 	if s.findVolume(vid) != nil {
 		return fmt.Errorf("Volume Id %d already exists!", vid)
 	}
+	// 寻找空闲的location
 	if location := s.FindFreeLocation(diskType); location != nil {
 		glog.V(0).Infof("In dir %s adds volume:%v collection:%s replicaPlacement:%v ttl:%v",
 			location.Directory, vid, collection, replicaPlacement, ttl)

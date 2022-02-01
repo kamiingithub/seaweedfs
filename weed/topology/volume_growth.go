@@ -90,7 +90,6 @@ func (vg *VolumeGrowth) AutomaticGrowByType(option *VolumeGrowOption, grpcDialOp
 }
 
 // 扩容在本地通过data center\rack\data node 层层找到符合要求的节点, 然后向目标节点发起 pb 请求申请扩容
-// 最终调用 volume server 的 AllocateVolume
 func (vg *VolumeGrowth) GrowByCountAndType(grpcDialOption grpc.DialOption, targetCount int, option *VolumeGrowOption, topo *Topology) (counter int, err error) {
 	vg.accessLock.Lock()
 	defer vg.accessLock.Unlock()
@@ -118,7 +117,6 @@ func (vg *VolumeGrowth) findAndGrow(grpcDialOption grpc.DialOption, topo *Topolo
 		return 0, raftErr
 	}
 	// 向目标 volume 发起 pb 请求申请扩容
-	// 最终调用 volume server 的 AllocateVolume
 	err := vg.grow(grpcDialOption, topo, vid, option, servers...)
 	return len(servers), err
 }
@@ -228,6 +226,7 @@ func (vg *VolumeGrowth) findEmptySlotsForOneVolume(topo *Topology, option *Volum
 
 func (vg *VolumeGrowth) grow(grpcDialOption grpc.DialOption, topo *Topology, vid needle.VolumeId, option *VolumeGrowOption, servers ...*DataNode) error {
 	for _, server := range servers {
+		// volume server处理逻辑 @see volume_grpc_admin#AllocateVolume
 		if err := AllocateVolume(server, grpcDialOption, vid, option); err == nil {
 			vi := storage.VolumeInfo{
 				Id:               vid,
